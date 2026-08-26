@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobLens 專案進度看板</title>
+<style>
+:root{
+  --bg:#f1f5f9; --card:#ffffff; --ink:#0f172a; --sub:#64748b; --line:#e2e8f0;
+  --cyan:#0891b2; --cyan-d:#0e7490; --green:#16a34a; --green-bg:#dcfce7;
+  --red:#dc2626; --red-bg:#fee2e2; --amber:#d97706; --amber-bg:#fef3c7;
+  --blue:#2563eb; --blue-bg:#dbeafe; --gray:#94a3b8; --gray-bg:#e2e8f0;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
+/* header */
+header{background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;padding:36px 0 28px;border-bottom:3px solid var(--cyan)}
+header .wrap{padding-bottom:0}
+h1{font-size:26px;font-weight:700;letter-spacing:.5px}
+h1 span{color:#22d3ee}
+.sub{color:#94a3b8;font-size:13px;margin-top:4px}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:22px 0 8px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.kpi .n{font-size:28px;font-weight:800;line-height:1.2}
+.kpi .l{font-size:12px;color:var(--sub);margin-top:2px}
+.kpi.red .n{color:var(--red)} .kpi.green .n{color:var(--green)} .kpi.cyan .n{color:var(--cyan)} .kpi.amber .n{color:var(--amber)}
+/* tabs */
+.tabs{display:flex;gap:8px;margin:20px 0 14px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:14px;color:var(--sub);transition:all .15s}
+.tab.active{background:var(--cyan);border-color:var(--cyan);color:#fff;font-weight:600}
+.tab:hover:not(.active){border-color:var(--cyan);color:var(--cyan-d)}
+.panel{display:none}
+.panel.active{display:block;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+/* batch cards */
+.batch{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:16px;overflow:hidden}
+.batch-h{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#f8fafc;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:6px}
+.batch-h .t{font-weight:700;font-size:15px}
+.batch-h .m{font-size:12px;color:var(--sub)}
+.batch-h .badge{font-size:12px;padding:2px 10px;border-radius:999px;font-weight:600}
+.badge.gray{background:var(--gray-bg);color:#475569}
+.badge.green{background:var(--green-bg);color:var(--green)}
+.badge.red{background:var(--red-bg);color:var(--red)}
+.batch-b{padding:6px 18px 14px}
+/* industry row */
+.irow{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line)}
+.irow:last-child{border-bottom:none}
+.ino{font-weight:600;font-size:14px}
+.ino .st{display:inline-block;margin-left:6px;font-size:11px;padding:1px 8px;border-radius:999px;vertical-align:1px}
+.st.lag{background:var(--red-bg);color:var(--red)} .st.ok{background:var(--green-bg);color:var(--green)}
+.st.prog{background:var(--blue-bg);color:var(--blue)} .st.wait{background:var(--gray-bg);color:#475569}
+.ino .pg{display:block;font-size:11px;color:var(--sub);font-weight:400;margin-top:2px}
+.bar{height:10px;background:var(--gray-bg);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--cyan),#06b6d4);transition:width .5s}
+.bar.lag i{background:linear-gradient(90deg,var(--red),#f87171)}
+.bar.wait i{background:var(--gray)}
+.bar.ok i{background:linear-gradient(90deg,var(--green),#4ade80)}
+.inum{text-align:right;font-size:13px;color:var(--sub);white-space:nowrap}
+.inum b{color:var(--ink);font-size:15px}
+.inum .sp{display:block;font-size:11px;color:var(--amber)}
+/* table */
+.tblwrap{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:auto;max-height:72vh}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:860px}
+th{position:sticky;top:0;background:#f8fafc;text-align:left;padding:10px 12px;font-size:12.5px;color:var(--sub);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:var(--cyan-d)}
+th .arr{font-size:10px}
+td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tr:hover td{background:#f8fafc}
+td .mini{font-size:11px;color:var(--sub)}
+.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600}
+.pill.lag{background:var(--red-bg);color:var(--red)} .pill.ok{background:var(--green-bg);color:var(--green)}
+.pill.prog{background:var(--blue-bg);color:var(--blue)} .pill.wait{background:var(--gray-bg);color:#475569}
+.pill.page{background:#f0fdfa;color:#0f766e;border:1px solid #99f6e4}
+.pill.nopage{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+td .bar{width:110px;display:inline-block;vertical-align:middle;margin-right:8px}
+/* filter bar */
+.filters{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filters select{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:13px;color:var(--ink);cursor:pointer}
+.filters label{font-size:12.5px;color:var(--sub)}
+/* member cards */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.mcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.mcard h3{font-size:15px;display:flex;justify-content:space-between;align-items:center}
+.mcard h3 .sum{font-size:12.5px;color:var(--sub);font-weight:400}
+.mcard .row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed #f1f5f9}
+.mcard .row:last-child{border-bottom:none}
+.mcard .row .nm{color:var(--sub)}
+.mcard .row .st2{font-weight:600}
+.mcard .row .st2.lag{color:var(--red)} .mcard .row .st2.ok{color:var(--green)}
+.mcard .row .st2.wait{color:var(--gray)} .mcard .row .st2.prog{color:var(--blue)}
+.mcard .empty{color:var(--gray);font-size:12.5px;padding:6px 0}
+/* notes */
+.notes{background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:14px 18px;margin-top:18px;font-size:12.5px;color:#78350f}
+.notes h4{font-size:13px;margin-bottom:6px;color:#92400e}
+.notes li{margin-left:18px;margin-bottom:3px}
+footer{text-align:center;color:var(--sub);font-size:12px;margin-top:26px}
+@media(max-width:720px){
+  .irow{grid-template-columns:1fr;gap:6px}
+  .inum{text-align:left}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>JobLens <span>專案進度看板</span></h1>
+    <div class="sub">資料日期：2026-08-26 ｜ 來源：「進度」試算表（進度表(新) × 產業總表 test）＋ supply-chain 網頁上線狀態</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- KPI -->
+  <div class="kpis">
+    <div class="kpi green"><div class="n" id="kDue">–</div><div class="l">已到期產業達標</div></div>
+    <div class="kpi red"><div class="n" id="kLag">–</div><div class="l">落後產業（過期未完成）</div></div>
+    <div class="kpi amber"><div class="n" id="kLagC">–</div><div class="l">落後企業家數</div></div>
+    <div class="kpi cyan"><div class="n" id="kRate">–</div><div class="l">全體完成率（可驗證範圍）</div></div>
+    <div class="kpi"><div class="n" id="kPage">–</div><div class="l">產業網頁已上線</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-p="batch">批次總覽</div>
+    <div class="tab" data-p="table">產業明細</div>
+    <div class="tab" data-p="member">負責人</div>
+  </div>
+
+  <div id="p-batch" class="panel active"></div>
+  <div id="p-table" class="panel">
+    <div class="filters">
+      <label>狀態</label><select id="fState"><option value="">全部</option><option value="落後">⚠️ 落後</option><option value="進行中">進行中</option><option value="未開始">未開始</option><option value="達標">達標</option></select>
+      <label>負責人</label><select id="fSid"><option value="">全部</option></select>
+      <label>網頁</label><select id="fPage"><option value="">全部</option><option value="1">已上線</option><option value="0">未上線</option></select>
+    </div>
+    <div class="tblwrap"><table id="tbl">
+      <thead><tr>
+        <th data-k="name">產業 <span class="arr"></span></th>
+        <th data-k="sid">負責人 <span class="arr"></span></th>
+        <th data-k="start">排程 <span class="arr"></span></th>
+        <th data-k="listed">計畫家數 <span class="arr"></span></th>
+        <th data-k="done">完成 <span class="arr"></span></th>
+        <th data-k="notdone">未完成 <span class="arr"></span></th>
+        <th data-k="rate">完成率 <span class="arr"></span></th>
+        <th data-k="page">網頁 <span class="arr"></span></th>
+        <th data-k="state">狀態 <span class="arr"></span></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+  <div id="p-member" class="panel"></div>
+
+  <!-- 註記 -->
+  <div class="notes">
+    <h4>📌 閱讀說明</h4>
+    <ul>
+      <li><b>完成</b> = 「產業總表」test 的「是否完成」欄為「是」；完成率分母 = 清單中 test 有收錄的公司（可驗證範圍）。</li>
+      <li><b>落後</b> = 排程結尾日期已過，但完成率未達 100%。</li>
+      <li>休閒娛樂特例：17 家觀光股（國賓、六福、晶華、雄獅等）未收錄在「產業總表」test 的分類表，故完成率以 test 有收錄的 11 家計算。</li>
+      <li>「進度表(新)」的「完成企業數」欄與實際公司清單數不一致（如鋼鐵寫 12、清單 38 家），本看板以清單家數為準。</li>
+      <li>「金融科技」子產業「人工智慧」與「人工智慧」產業為同一批公司，公司不重複計入。</li>
+      <li>「半導體」未列入進度表(新)，但 test 已 211/212 完成、網頁 7/10 已上線（早期批次）。</li>
+    </ul>
+  </div>
+  <footer>由 Hermes 每週自動更新 ｜ 資料快照內嵌，離線可開</footer>
+</div>
+
+<script>
+const DATA = [{"name": "自動化", "sid": "A1121713", "main_sid": "A1121713", "start": "2026/6/29", "end": "2026/7/4", "f_count": "1", "listed": 1, "done": 1, "notdone": 0, "miss": 0, "verifiable": 1, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "再生醫療", "sid": "A1123314", "main_sid": "A1123314", "start": "2026/6/29", "end": "2026/7/4", "f_count": "5", "listed": 5, "done": 5, "notdone": 0, "miss": 0, "verifiable": 5, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "區塊鏈", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/6/29", "end": "2026/7/4", "f_count": "6", "listed": 6, "done": 6, "notdone": 0, "miss": 0, "verifiable": 6, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "金融科技", "sid": "A1123343", "main_sid": "A1123343", "start": "2026/6/29", "end": "2026/7/4", "f_count": "6", "listed": 6, "done": 6, "notdone": 0, "miss": 0, "verifiable": 6, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "造紙", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/6/29", "end": "2026/7/4", "f_count": "7", "listed": 7, "done": 7, "notdone": 0, "miss": 0, "verifiable": 7, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "文化創意", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/6/29", "end": "2026/7/4", "f_count": "7", "listed": 7, "done": 7, "notdone": 0, "miss": 0, "verifiable": 7, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "太空衛星科技", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/6/29", "end": "2026/7/6", "f_count": "7", "listed": 7, "done": 7, "notdone": 0, "miss": 0, "verifiable": 7, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "油電燃氣", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/6/29", "end": "2026/7/6", "f_count": "8", "listed": 8, "done": 8, "notdone": 0, "miss": 0, "verifiable": 8, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "電子商務", "sid": "A1123343", "main_sid": "A1123343", "start": "2026/6/29", "end": "2026/7/6", "f_count": "9", "listed": 9, "done": 9, "notdone": 0, "miss": 0, "verifiable": 9, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "水泥", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/6/29", "end": "2026/7/6", "f_count": "9", "listed": 9, "done": 9, "notdone": 0, "miss": 0, "verifiable": 9, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "汽電共生", "sid": "A1123314", "main_sid": "A1123314", "start": "2026/6/29", "end": "2026/7/6", "f_count": "9", "listed": 9, "done": 9, "notdone": 0, "miss": 0, "verifiable": 9, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "體驗科技", "sid": "A1121713", "main_sid": "A1121713", "start": "2026/6/29", "end": "2026/7/6", "f_count": "10", "listed": 10, "done": 10, "notdone": 0, "miss": 0, "verifiable": 10, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "食品生技", "sid": "A1121713", "main_sid": "A1121713", "start": "2026/7/6", "end": "2026/7/13", "f_count": "6", "listed": 11, "done": 11, "notdone": 0, "miss": 0, "verifiable": 11, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "運動科技", "sid": "A1123314", "main_sid": "A1123314", "start": "2026/7/6", "end": "2026/7/13", "f_count": "6", "listed": 12, "done": 12, "notdone": 0, "miss": 0, "verifiable": 12, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "資通訊安全", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/7/6", "end": "2026/7/13", "f_count": "7", "listed": 14, "done": 14, "notdone": 0, "miss": 0, "verifiable": 14, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "能源元件", "sid": "A1123343", "main_sid": "A1123343", "start": "2026/7/6", "end": "2026/7/13", "f_count": "9", "listed": 17, "done": 17, "notdone": 0, "miss": 0, "verifiable": 17, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "觸控面板", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/7/6", "end": "2026/7/13", "f_count": "9", "listed": 18, "done": 18, "notdone": 0, "miss": 0, "verifiable": 18, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "大數據", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/7/6", "end": "2026/7/13", "f_count": "9", "listed": 18, "done": 18, "notdone": 0, "miss": 0, "verifiable": 18, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "被動元件", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/7/13", "end": "2026/7/20", "f_count": "10", "listed": 20, "done": 20, "notdone": 0, "miss": 0, "verifiable": 20, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "軟體服務", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/7/13", "end": "2026/7/20", "f_count": "12", "listed": 24, "done": 24, "notdone": 0, "miss": 0, "verifiable": 24, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "製藥", "sid": "A1123343", "main_sid": "A1123343", "start": "2026/7/13", "end": "2026/7/20", "f_count": "14", "listed": 28, "done": 28, "notdone": 0, "miss": 0, "verifiable": 28, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "雲端運算", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/7/13", "end": "2026/7/20", "f_count": "13", "listed": 26, "done": 26, "notdone": 0, "miss": 0, "verifiable": 26, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "休閒娛樂", "sid": "A1123314", "main_sid": "A1123314", "start": "2026/7/13", "end": "2026/7/20", "f_count": "14", "listed": 28, "done": 11, "notdone": 0, "miss": 17, "verifiable": 11, "rate": 100, "state": "達標", "special": "17 家不在 test 分類表", "page": true, "page_hint": ""}, {"name": "人工智慧", "sid": "A1121713", "main_sid": "A1121713", "start": "2026/7/13", "end": "2026/7/20", "f_count": "14", "listed": 27, "done": 27, "notdone": 0, "miss": 0, "verifiable": 27, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "連接器", "sid": "A1121713", "main_sid": "A1121713", "start": "2026/7/27", "end": "2026/8/3", "f_count": "15", "listed": 30, "done": 30, "notdone": 0, "miss": 0, "verifiable": 30, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "交通運輸及航運", "sid": "A1123314", "main_sid": "A1123314", "start": "2026/7/27", "end": "2026/8/3", "f_count": "15", "listed": 29, "done": 29, "notdone": 0, "miss": 0, "verifiable": 29, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "風力發電", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/7/27", "end": "2026/8/3", "f_count": "15", "listed": 29, "done": 29, "notdone": 0, "miss": 0, "verifiable": 29, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "食品", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/7/27", "end": "2026/8/3", "f_count": "16", "listed": 31, "done": 31, "notdone": 0, "miss": 0, "verifiable": 31, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "智慧電網", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/7/27", "end": "2026/8/3", "f_count": "15", "listed": 29, "done": 29, "notdone": 0, "miss": 0, "verifiable": 29, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "貿易百貨", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/8/10", "end": "2026/8/17", "f_count": "13", "listed": 38, "done": 13, "notdone": 25, "miss": 0, "verifiable": 38, "rate": 34, "state": "落後", "special": "", "page": false, "page_hint": ""}, {"name": "鋼鐵", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/8/10", "end": "2026/8/17", "f_count": "12", "listed": 38, "done": 38, "notdone": 0, "miss": 0, "verifiable": 38, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "金融", "sid": "A1123343", "main_sid": "A1123343", "start": "2026/8/10", "end": "2026/8/17", "f_count": "12", "listed": 37, "done": 37, "notdone": 0, "miss": 0, "verifiable": 37, "rate": 100, "state": "達標", "special": "", "page": true, "page_hint": ""}, {"name": "太陽能", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/8/10", "end": "2026/8/17", "f_count": "13", "listed": 39, "done": 30, "notdone": 9, "miss": 0, "verifiable": 39, "rate": 77, "state": "落後", "special": "", "page": true, "page_hint": ""}, {"name": "電動車", "sid": "A1123314", "main_sid": "A1123314", "start": "2026/8/10", "end": "2026/8/17", "f_count": "13", "listed": 41, "done": 36, "notdone": 5, "miss": 0, "verifiable": 41, "rate": 88, "state": "落後", "special": "", "page": false, "page_hint": ""}, {"name": "醫療器材", "sid": "A1121713", "main_sid": "A1121713", "start": "2026/8/10", "end": "2026/8/17", "f_count": "16", "listed": 48, "done": 31, "notdone": 17, "miss": 0, "verifiable": 48, "rate": 65, "state": "落後", "special": "", "page": false, "page_hint": ""}, {"name": "汽車", "sid": "A1121713", "main_sid": "A1121713", "start": "2026/8/31", "end": "2026/9/7", "f_count": "16", "listed": 49, "done": 10, "notdone": 39, "miss": 0, "verifiable": 49, "rate": 20, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "印刷電路板", "sid": "A1123314", "main_sid": "A1123314", "start": "2026/8/31", "end": "2026/9/7", "f_count": "16", "listed": 50, "done": 18, "notdone": 32, "miss": 0, "verifiable": 50, "rate": 36, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "LED照明", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/8/31", "end": "2026/9/7", "f_count": "15", "listed": 47, "done": 29, "notdone": 18, "miss": 0, "verifiable": 47, "rate": 62, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "紡織", "sid": "A1123343", "main_sid": "A1123343", "start": "2026/8/31", "end": "2026/9/7", "f_count": "20", "listed": 60, "done": 7, "notdone": 53, "miss": 0, "verifiable": 60, "rate": 12, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "石化及塑橡膠", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/8/31", "end": "2026/9/7", "f_count": "23", "listed": 71, "done": 20, "notdone": 51, "miss": 0, "verifiable": 71, "rate": 28, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "電機機械", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/8/31", "end": "2026/9/7", "f_count": "24", "listed": 73, "done": 22, "notdone": 51, "miss": 0, "verifiable": 73, "rate": 30, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "平面顯示器", "sid": "A1123362", "main_sid": "A1123362", "start": "2026/10/12", "end": "2026/10/19", "f_count": "15", "listed": 77, "done": 53, "notdone": 24, "miss": 0, "verifiable": 77, "rate": 69, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "通信網路", "sid": "A1123355", "main_sid": "A1123355", "start": "2026/10/12", "end": "2026/10/19", "f_count": "16", "listed": 80, "done": 46, "notdone": 34, "miss": 0, "verifiable": 80, "rate": 57, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "建材營造", "sid": "A1123343", "main_sid": "A1123343", "start": "2026/10/12", "end": "2026/10/19", "f_count": "16", "listed": 83, "done": 21, "notdone": 62, "miss": 0, "verifiable": 83, "rate": 25, "state": "進行中", "special": "", "page": false, "page_hint": ""}, {"name": "電腦週邊", "sid": "A1123319", "main_sid": "A1123319", "start": "2026/10/12", "end": "2026/10/19", "f_count": "33", "listed": 165, "done": 162, "notdone": 3, "miss": 0, "verifiable": 165, "rate": 98, "state": "進行中", "special": "", "page": true, "page_hint": ""}, {"name": "其他", "sid": "A1123314、A1121713", "main_sid": "A1123314", "start": "2026/10/12", "end": "2026/10/19", "f_count": "31", "listed": 158, "done": 52, "notdone": 106, "miss": 0, "verifiable": 158, "rate": 33, "state": "進行中", "special": "", "page": false, "page_hint": ""}];
+const STATS = {"due_total": 35, "due_ok": 31, "lag_count": 4, "lag_company": 56, "overall_rate": 67, "total_listed": 1629, "total_done": 1083, "page_online": 33, "page_total": 46};
+
+/* KPI */
+document.getElementById('kDue').textContent = STATS.due_ok + ' / ' + STATS.due_total;
+document.getElementById('kLag').textContent = STATS.lag_count;
+document.getElementById('kLagC').textContent = STATS.lag_company + ' 家';
+document.getElementById('kRate').textContent = STATS.overall_rate + '%';
+document.getElementById('kPage').textContent = STATS.page_online + ' / ' + STATS.page_total;
+
+/* Tabs */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('p-'+t.dataset.p).classList.add('active');
+}));
+
+const ST = {落後:'lag',達標:'ok',進行中:'prog',未開始:'wait'};
+const STTXT = {落後:'⚠️ 落後',達標:'✅ 達標',進行中:'🔄 進行中',未開始:'⏳ 未開始'};
+
+/* 批次總覽 */
+function batchView(){
+  const byStart = {};
+  DATA.forEach(d=>{
+    const k = d.start || '未排程';
+    (byStart[k]=byStart[k]||[]).push(d);
+  });
+  const order = Object.keys(byStart).sort((a,b)=>a.localeCompare(b,'zh-Hant-TW',{numeric:true}));
+  const el = document.getElementById('p-batch');
+  el.innerHTML = order.map(st=>{
+    const list = byStart[st];
+    const lagN = list.filter(d=>d.state==='落後').length;
+    const okN = list.filter(d=>d.state==='達標').length;
+    const badge = lagN? `<span class="badge red">${lagN} 個落後</span>` : `<span class="badge ${okN===list.length?'green':'gray'}">${okN}/${list.length} 達標</span>`;
+    const rows = list.map(d=>{
+      const cls = ST[d.state];
+      const sp = d.special? `<span class="sp">${d.special}</span>`:'';
+      const pg = d.page? '<span style="color:#0f766e">網頁✓</span>' : '<span style="color:#c2410c">網頁未上線</span>';
+      return `<div class="irow">
+        <div class="ino">${d.name}<span class="st ${cls}">${STTXT[d.state]}</span>
+          <span class="pg">${d.sid} ｜ ${d.start}~${d.end} ｜ ${pg}</span></div>
+        <div class="bar ${cls==='lag'?'lag':cls==='wait'?'wait':'ok'}"><i style="width:${d.rate}%"></i></div>
+        <div class="inum"><b>${d.rate}%</b>（${d.done}/${d.verifiable}）${sp}</div>
+      </div>`;
+    }).join('');
+    return `<div class="batch"><div class="batch-h"><span class="t">${st} 批次</span><span>${badge}</span></div><div class="batch-b">${rows}</div></div>`;
+  }).join('');
+}
+batchView();
+
+/* 產業明細表 */
+function fillSidFilter(){
+  const sids = [...new Set(DATA.map(d=>d.main_sid))].sort();
+  document.getElementById('fSid').innerHTML = '<option value="">全部</option>' + sids.map(s=>`<option>${s}</option>`).join('');
+}
+let sortKey='start', sortAsc=true;
+function renderTable(){
+  const fState=document.getElementById('fState').value, fSid=document.getElementById('fSid').value, fPage=document.getElementById('fPage').value;
+  let rows = DATA.filter(d=>
+    (!fState || d.state===fState) && (!fSid || d.main_sid===fSid) && (fPage==='' || String(d.page)===fPage));
+  rows.sort((a,b)=>{
+    let x=a[sortKey], y=b[sortKey];
+    if(sortKey==='rate'||sortKey==='listed'||sortKey==='done'||sortKey==='notdone'){x=+x;y=+y;}
+    else if(sortKey==='page'){x=a.page?1:0;y=b.page?1:0;}
+    else if(sortKey==='start'){x=a.start+'~'+a.end;y=b.start+'~'+b.end;}
+    return sortAsc? (x<y?-1:x>y?1:0) : (x>y?-1:x<y?1:0);
+  });
+  const tb=document.querySelector('#tbl tbody');
+  tb.innerHTML = rows.map(d=>{
+    const cls=ST[d.state];
+    const pg = d.page? `<span class="pill page">已上線</span>` : `<span class="pill nopage">未上線</span>`;
+    return `<tr>
+      <td><b>${d.name}</b>${d.special?`<div class="mini">${d.special}</div>`:''}</td>
+      <td>${d.sid}</td>
+      <td>${d.start}~${d.end}</td>
+      <td>${d.listed}</td>
+      <td style="color:var(--green);font-weight:600">${d.done}</td>
+      <td style="color:var(--red);font-weight:600">${d.notdone}</td>
+      <td><span class="bar ${cls==='lag'?'lag':cls==='wait'?'wait':'ok'}"><i style="width:${d.rate}%"></i></span>${d.rate}%</td>
+      <td>${pg}</td>
+      <td><span class="pill ${cls}">${STTXT[d.state]}</span></td>
+    </tr>`;
+  }).join('');
+  document.querySelectorAll('#tbl th').forEach(th=>{
+    th.querySelector('.arr').textContent = th.dataset.k===sortKey ? (sortAsc?'▲':'▼') : '';
+  });
+}
+document.querySelectorAll('#tbl th').forEach(th=>th.addEventListener('click',()=>{
+  const k=th.dataset.k;
+  if(sortKey===k) sortAsc=!sortAsc; else {sortKey=k; sortAsc=true;}
+  renderTable();
+}));
+['fState','fSid','fPage'].forEach(id=>document.getElementById(id).addEventListener('change',renderTable));
+fillSidFilter(); renderTable();
+
+/* 負責人 */
+function memberView(){
+  function sum(arr,k){return arr.reduce((a,x)=>a+x[k],0);}
+  const bySid = {};
+  DATA.forEach(d=>{(bySid[d.main_sid]=bySid[d.main_sid]||[]).push(d);});
+  const el=document.getElementById('p-member');
+  el.innerHTML='<div class="mgrid">'+Object.keys(bySid).sort().map(sid=>{
+    const list=bySid[sid];
+    const done=sum(list,'done'), ver=sum(list,'verifiable');
+    const lag=list.filter(d=>d.state==='落後');
+    const rate=ver?Math.round(done/ver*100):0;
+    const rows=list.map(d=>{
+      const c=ST[d.state];
+      const who = d.sid===d.main_sid? '' : `（與 ${d.sid} 共同）`;
+      return `<div class="row"><span class="nm">${d.name}${who}</span><span class="st2 ${c}">${d.rate}% ${d.state==='落後'?`（未完成 ${d.notdone} 家）`:''}</span></div>`;
+    }).join('');
+    const lagBadge = lag.length? `<span style="color:var(--red);font-size:12px">⚠️ ${lag.map(x=>x.name).join('、')}</span>` : '';
+    return `<div class="mcard"><h3>${sid}<span class="sum">${list.length} 產業 ｜ 完成率 ${rate}%</span></h3>
+      ${lagBadge?`<div style="font-size:12px;color:var(--red);padding:4px 0">${lagBadge}</div>`:''}
+      ${rows}</div>`;
+  }).join('')+'</div>';
+}
+memberView();
+</script>
+</body>
+</html>
